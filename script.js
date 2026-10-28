@@ -1377,21 +1377,21 @@ function widgetHTML(w, rect, style) {
 
 // Colores del usuario como variables CSS del visor (los tonos intermedios salen por color-mix en el CSS).
 function applyPreviewTheme() {
-  const p = $('#oledPreview');
-  if (!p) return;
   const { accent, bg, text } = state.display.colors;
-  p.style.setProperty('--tft-accent', accent);
-  p.style.setProperty('--tft-bg', bg);
-  p.style.setProperty('--tft-text', text);
-  p.dataset.style = state.display.style;
+  document.querySelectorAll('#oledPreview, #sePreview').forEach((p) => {
+    p.style.setProperty('--tft-accent', accent);
+    p.style.setProperty('--tft-bg', bg);
+    p.style.setProperty('--tft-text', text);
+    p.dataset.style = state.display.style;
+  });
 }
 
 // Rellena el contenedor con la pantalla activa (sin animaciones).
-function paintOledScreen(content) {
-  const screen = currentScreen();
+function paintOledScreen(content, index = currentScreenIndex) {
+  const screen = state.display.screens[index];
   const style = state.display.style;
   const rects = D.slotRects(screen);
-  content.dataset.screen = currentScreenIndex;
+  content.dataset.screen = index;
   content.innerHTML = screen.slots.map((w, k) => {
     const [x, y, rw, rh] = rects[k];
     const pos = `left:${(x / D.W) * 100}%;top:${(y / D.H) * 100}%;width:${(rw / D.W) * 100}%;height:${(rh / D.H) * 100}%`;
@@ -1431,6 +1431,7 @@ function renderOledScreen(animate, dir = 1) {
   paintOledScreen(content);
   if (screenHasNowPlaying()) updateNowPlayingView(spotifyState, { instant: true });
   else npStop();
+  renderEditorPreview();
 
   if (!animated) return;
 
@@ -1634,10 +1635,20 @@ function slotExtraHTML(w, i, k) {
   return '';
 }
 
+let seIndex = 0;   // pantalla que muestra la vista previa del editor (no cambia la del RHub)
+function renderEditorPreview() {
+  const box = $('#screenEditorOverlay'), c = $('#seContent');
+  if (!c || !box.classList.contains('open') || !state.display.screens[seIndex]) return;
+  paintOledScreen(c, seIndex);
+  $('#sePreviewLabel').textContent = `Pantalla ${seIndex + 1}`;
+}
+
 function renderScreenEditor() {
   const box = $('#screenEditorOverlay');
   if (!box || !box.classList.contains('open')) return;
   const d = state.display;
+  seIndex = Math.min(seIndex, d.screens.length - 1);
+  renderEditorPreview();
   $('#seStyles').innerHTML = D.STYLES.map((s) => `
     <button type="button" class="se-style${s.id === d.style ? ' on' : ''}" data-style="${s.id}">
       <span class="se-style-prev" style="background:${s.colors.bg};color:${s.colors.text}">12<b style="color:${s.colors.accent}">:</b>34</span>
@@ -1649,7 +1660,7 @@ function renderScreenEditor() {
   $('#seCount').textContent = `${d.screens.length} de ${D.MAX_SCREENS}`;
   $('#seAddScreen').disabled = d.screens.length >= D.MAX_SCREENS;
   $('#seScreens').innerHTML = d.screens.map((s, i) => `
-    <div class="se-screen${i === currentScreenIndex ? ' current' : ''}">
+    <div data-i="${i}" class="se-screen${i === seIndex ? ' current' : ''}">
       <div class="se-screen-head">
         <span class="se-screen-name">Pantalla ${i + 1}</span>
         <select class="input se-layout" data-i="${i}" aria-label="Distribución de la pantalla ${i + 1}">
@@ -1695,7 +1706,12 @@ function setupScreenEditor() {
   let pickTarget = null;
   let textTimer = null;
 
-  const open = () => { overlay.classList.add('open'); renderScreenEditor(); };
+  const open = () => { seIndex = currentScreenIndex; overlay.classList.add('open'); renderScreenEditor(); };
+  // La vista previa del editor sigue a la pantalla que tocas o editas.
+  overlay.addEventListener('pointerdown', (e) => {
+    const card = e.target.closest('.se-screen');
+    if (card && +card.dataset.i !== seIndex) { seIndex = +card.dataset.i; renderEditorPreview(); overlay.querySelectorAll('.se-screen').forEach((c) => c.classList.toggle('current', +c.dataset.i === seIndex)); }
+  });
   const close = () => overlay.classList.remove('open');
   $('#btnScreenEdit').onclick = open;
   $('#seClose').onclick = close;
