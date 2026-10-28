@@ -1,26 +1,8 @@
-# RHub — versión app de escritorio (Electron)
+# RHub — versión app de escritorio
 
 > **Hardware actual:** macropad 3×3 con pantalla TFT ST7789 de 2.25" (76×284) y
 > ESP32-C3 SuperMini, sin sliders. Armado, cableado, PCB y cómo subir el firmware:
 > **[guía de armado](https://retrohub-delta.vercel.app/guia)**.
-
-## Qué cambia respecto a la versión web + Python
-
-| | Antes | Ahora |
-|---|---|---|
-| Procesos | 2 (navegador + `esp32_listener.py`) | 1 (`RHub.exe`) |
-| Guardar config | Exportar JSON manualmente | Automático, en cada cambio |
-| Teclas/combos/macros reales | Solo Python | La misma app |
-| Puerto serial | WebSerial o pyserial (uno u otro) | `serialport` (Node), un solo dueño del puerto |
-
-Sonido, OBS (websocket) y perfiles siguen funcionando en el navegador
-embebido (Chromium dentro de Electron), como ya lo hacían — no tuve que
-tocar esa parte.
-
-**Cadena de acciones**: ya no es solo "abrir enlace/app" + "esperar" — el
-tipo `chain` ahora también soporta escribir texto, presionar una tecla,
-una combinación, y teclas multimedia, con captura en vivo igual que en
-los botones normales (clic en el paso → presiona la tecla/atajo).
 
 ## Instalación (primera vez)
 
