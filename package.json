@@ -1,6 +1,6 @@
 {
   "name": "retro-deck",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "RHub - app de escritorio para tu macropad 3x3 con pantalla TFT y ESP32-C3",
   "main": "main.js",
   "scripts": {
