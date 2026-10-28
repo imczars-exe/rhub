@@ -1,0 +1,34 @@
+# Dependencias y builds (el instalador va en el release, no en el repo)
+node_modules/
+dist/
+dist-*/
+out/
+
+# Secretos y datos locales
+.env*
+web/public/.vercel/
+
+# Archivos pesados o viejos: escenas de Blender (~58 MB c/u), sus respaldos,
+# el zip viejo del proyecto y svcl.exe (ya no se usa desde que se quitó el mezclador)
+*.blend
+*.blend1
+RetroHUB.zip
+bin/
+
+# Cachés de herramientas
+.claude/
+.impeccable/
+**/.impeccable/
+pcb/.history/
+
+# El repo es solo el programa (app + firmware). Hardware, guías, web y renders
+# viven fuera del repo: PCB y gerbers van en el release, la guía en la web.
+CABLEADO.md
+Guia-armado-RetroHUB.pdf
+render-*.png
+gerbers.zip
+gerbers/
+guia/
+modelos3d/
+pcb/
+web/
