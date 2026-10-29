@@ -1003,11 +1003,21 @@ function setupUpdates() {
     btn.disabled = st.status === 'checking';
     btn.textContent = st.status === 'ready' ? 'Reiniciar para actualizar' : 'Buscar';
     btn.classList.toggle('btn-primary', st.status === 'ready');
-    if (st.status === 'ready' && !notified) { notified = true; toast(`Actualización lista: versión ${st.version}`, 'success'); }
+    if (st.status === 'ready' && !notified) {
+      notified = true;
+      const ov = $('#updateOverlay');
+      if (ov) {
+        $('#updTitle').textContent = i18n.t('Versión') + ' ' + st.version;
+        $('#updNotes').textContent = st.notes || i18n.t('Mejoras y correcciones.');
+        ov.classList.add('open');
+      } else toast(`Actualización lista: versión ${st.version}`, 'success');
+    }
   };
   let last = { enabled: true, status: 'idle', current: '' };
   const apply = (st) => { last = { ...last, ...st }; paint(last); };
   btn.onclick = () => { if (last.status === 'ready') api.updateInstall(); else api.updateCheck(); };
+  $('#updLater').onclick = () => $('#updateOverlay').classList.remove('open');
+  $('#updNow').onclick = () => api.updateInstall();
   api.onUpdateState(apply);
   api.updateState().then(apply);
 }

@@ -1772,3 +1772,6 @@ header button, header .conn-badge, header .conn-group { -webkit-app-region: no-d
 .se-drive:hover { border-color: var(--text-dim); color: var(--text); }
 .se-drive.on { border-color: var(--text); color: var(--text); }
 .se-drive:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+/* Novedades de la actualización */
+.upd-notes { margin-top: 10px; padding: 10px 12px; max-height: 240px; overflow-y: auto; white-space: pre-line; font-size: 13px; line-height: 1.5; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); }

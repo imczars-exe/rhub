@@ -130,6 +130,15 @@ function createTray() {
 // Revisa al abrir y cada 6 horas, baja sola y se instala al salir (o cuando el usuario pulsa Reiniciar).
 // RHUB_UPDATE_URL apunta a otra carpeta/servidor, solo para probar sin publicar nada.
 // =============================================================
+// Las notas llegan como HTML (o lista de {note}); se pasan a texto y se corta en la sección "Descarga".
+function notesText(n) {
+  let h = Array.isArray(n) ? n.map((x) => x.note).join('\n') : String(n || '');
+  h = h.replace(/<li[^>]*>/gi, '\n- ').replace(/<\/(p|h\d|ul|ol)>|<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  const cut = h.search(/^\s*Descarga\s*$/mi);
+  if (cut >= 0) h = h.slice(0, cut);
+  return h.split('\n').map((l) => l.trim()).filter(Boolean).join('\n').slice(0, 1500);
+}
 let updateState = { status: 'idle', current: app.getVersion(), version: null, percent: 0, error: null };
 function setUpdate(patch) {
   updateState = { ...updateState, ...patch };
@@ -145,7 +154,7 @@ function setupAutoUpdate() {
   autoUpdater.on('update-available', (i) => setUpdate({ status: 'downloading', version: i.version, percent: 0 }));
   autoUpdater.on('update-not-available', () => setUpdate({ status: 'latest' }));
   autoUpdater.on('download-progress', (p) => setUpdate({ status: 'downloading', percent: Math.round(p.percent) }));
-  autoUpdater.on('update-downloaded', (i) => setUpdate({ status: 'ready', version: i.version, percent: 100 }));
+  autoUpdater.on('update-downloaded', (i) => setUpdate({ status: 'ready', version: i.version, percent: 100, notes: notesText(i.releaseNotes) }));
   autoUpdater.on('error', (e) => setUpdate({ status: 'error', error: String((e && e.message) || e).slice(0, 160) }));
   return true;
 }

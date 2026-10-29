@@ -73,7 +73,7 @@
     '"Cambiar pantalla" las recorre en este orden. Imagen y video se ven en el RHub mientras la app está abierta; el video solo va en una pantalla de 1 hueco.': '"Change screen" cycles through them in this order. Image and video show on the RHub while the app is open; video only works on a 1-slot screen.',
     'Actual': 'Current', 'Minimal': 'Minimal', 'Terminal': 'Terminal', 'Color': 'Color',
     '1 grande': '1 large', '2 iguales': '2 equal', '3 iguales': '3 equal', '1 grande + 2 chicos': '1 large + 2 small',
-    'Vacío': 'Empty', 'Tu texto': 'Your text', 'Clima': 'Weather', 'Red Mbps': 'Network Mbps', 'Disco': 'Disk', 'Red': 'Network', 'Hora y fecha': 'Time and date', 'Sistema (RAM, CPU, GPU)': 'System (RAM, CPU, GPU)', 'Imagen': 'Image', 'Video': 'Video',
+    'Vacío': 'Empty', 'Tu texto': 'Your text', 'Clima': 'Weather', 'Versión': 'Version', 'Después': 'Later', 'Reiniciar y actualizar': 'Restart and update', 'Novedades de esta versión:': "What's new in this version:", 'Mejoras y correcciones.': 'Improvements and fixes.', 'Actualización disponible': 'Update available', 'Red Mbps': 'Network Mbps', 'Disco': 'Disk', 'Red': 'Network', 'Hora y fecha': 'Time and date', 'Sistema (RAM, CPU, GPU)': 'System (RAM, CPU, GPU)', 'Imagen': 'Image', 'Video': 'Video',
     'Pantalla completa': 'Full screen', 'Izquierda': 'Left', 'Derecha': 'Right', 'Centro': 'Center', 'Grande': 'Large', 'Arriba': 'Top', 'Abajo': 'Bottom',
     'Texto a mostrar': 'Text to display', 'Elegir imagen': 'Choose image', 'Cambiar imagen': 'Change image', 'Elegir video': 'Choose video', 'Cambiar video': 'Change video',
     // Spotify (acciones y estados)
