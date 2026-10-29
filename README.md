@@ -27,3 +27,35 @@ Todas las versiones están en [Releases](https://github.com/imczars-exe/rhub/rel
 
 - Guía de armado: https://retrohub-delta.vercel.app/guia
 - Gerbers de la PCB: [gerbers.zip](https://github.com/imczars-exe/rhub/releases/download/v1.0.0/gerbers.zip)
+
+---
+
+# RHub (English)
+
+Desktop app and firmware for a 3×3 macropad with a TFT screen and an ESP32-C3.
+
+## Getting it running
+
+1. Build the macropad and flash the firmware following the **[build guide](https://retrohub-delta.vercel.app/guide)**.
+2. Download `RHub-Setup-<version>.exe` from the latest version in [Releases](https://github.com/imczars-exe/rhub/releases/latest) and install it.
+3. Plug the macropad in over USB, open RHub and click **Conectar** (Connect).
+
+### From source
+
+You need [Node.js](https://nodejs.org) (LTS).
+
+```
+npm install
+npm start
+```
+
+To build the installer: `npm run dist` (output goes to `dist/`).
+
+## Versions
+
+All versions are in [Releases](https://github.com/imczars-exe/rhub/releases).
+
+## Guide and PCB
+
+- Build guide: https://retrohub-delta.vercel.app/guide
+- PCB gerbers: [gerbers.zip](https://github.com/imczars-exe/rhub/releases/download/v1.0.0/gerbers.zip)
