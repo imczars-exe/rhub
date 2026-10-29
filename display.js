@@ -16,7 +16,8 @@
      STY:<estilo>,<acento>,<fondo>,<texto>    colores en 4 hex RGB565
      SCN:<cantidad>                           cuántas pantallas hay (1-8)
      SCD:<i>,<layout>,<t0>,<t1>,<t2>          layout y tipo de widget de cada hueco
-     SCT:<i>,<hueco>,<texto>                  texto del widget "Texto" (ASCII)
+     SCT:<i>,<hueco>,<texto>                  texto del widget "Texto" (ASCII); en clima, disco
+                                              y red es 'etiqueta|valor' y la app lo renueva sola
      IMG:<x>,<y>,<w>,<h>,<escala>,<bytes>\n + bytes RGB565 little-endian -> el ESP32 responde ACK
    ===================================================================== */
 (function (root, factory) {
@@ -53,7 +54,13 @@
     { id: 'image',   label: 'Imagen' },
     { id: 'text',    label: 'Texto' },
     { id: 'video',   label: 'Video', fullOnly: true },
+    // Widgets con datos que calcula la app (widgets.js) y llegan al ESP32 como texto 'etiqueta|valor'.
+    { id: 'weather', label: 'Clima' },
+    { id: 'disk',    label: 'Disco' },
+    { id: 'net',     label: 'Red' },
   ];
+  const INFO_TYPES = ['weather', 'disk', 'net'];
+  const MAX_CITY = 30;
 
   const VIDEO_W = W / 2, VIDEO_H = H / 2;   // el video viaja a media resolución y el ESP32 lo duplica
 
@@ -92,6 +99,8 @@
         const type = meta.fullOnly && layout.id !== 'full' ? 'none' : meta.id;
         const out = { type };
         if (type === 'text') out.text = String(w.text || '').slice(0, MAX_TEXT);
+        if (type === 'weather') out.city = String(w.city || '').slice(0, MAX_CITY);
+        if (type === 'disk' && typeof w.drive === 'string' && /^[A-Za-z]:$/.test(w.drive.trim())) out.drive = w.drive.trim().toUpperCase();
         if (type === 'image' && typeof w.image === 'string') out.image = w.image;
         if (type === 'video' && typeof w.video === 'string') out.video = w.video;
         return out;
@@ -145,10 +154,14 @@
     return out;
   }
 
+  // Clave con la que la app y el visor identifican los datos de un widget (dos climas de ciudades distintas no se pisan).
+  const widgetKey = (w) => (w.type === 'weather' ? 'weather:' + (w.city || '').trim().toLowerCase()
+    : w.type === 'disk' ? 'disk:' + (w.drive || '').toLowerCase() : w.type);
+
   const hasType = (screen, type) => !!screen && screen.slots.some((w) => w.type === type);
 
   return {
-    W, H, MAX_SCREENS, MAX_TEXT, VIDEO_W, VIDEO_H, STYLES, LAYOUTS, WIDGETS,
+    W, H, MAX_SCREENS, MAX_TEXT, MAX_CITY, INFO_TYPES, widgetKey, VIDEO_W, VIDEO_H, STYLES, LAYOUTS, WIDGETS,
     defaultDisplay, normalize, slotRects, configLines, rgbaTo565, hexTo565, asciiText, hasType,
   };
 });

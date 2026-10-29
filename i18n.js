@@ -73,7 +73,7 @@
     '"Cambiar pantalla" las recorre en este orden. Imagen y video se ven en el RHub mientras la app está abierta; el video solo va en una pantalla de 1 hueco.': '"Change screen" cycles through them in this order. Image and video show on the RHub while the app is open; video only works on a 1-slot screen.',
     'Actual': 'Current', 'Minimal': 'Minimal', 'Terminal': 'Terminal', 'Color': 'Color',
     '1 grande': '1 large', '2 iguales': '2 equal', '3 iguales': '3 equal', '1 grande + 2 chicos': '1 large + 2 small',
-    'Vacío': 'Empty', 'Hora y fecha': 'Time and date', 'Sistema (RAM, CPU, GPU)': 'System (RAM, CPU, GPU)', 'Imagen': 'Image', 'Video': 'Video',
+    'Vacío': 'Empty', 'Tu texto': 'Your text', 'Clima': 'Weather', 'Red Mbps': 'Network Mbps', 'Disco': 'Disk', 'Red': 'Network', 'Hora y fecha': 'Time and date', 'Sistema (RAM, CPU, GPU)': 'System (RAM, CPU, GPU)', 'Imagen': 'Image', 'Video': 'Video',
     'Pantalla completa': 'Full screen', 'Izquierda': 'Left', 'Derecha': 'Right', 'Centro': 'Center', 'Grande': 'Large', 'Arriba': 'Top', 'Abajo': 'Bottom',
     'Texto a mostrar': 'Text to display', 'Elegir imagen': 'Choose image', 'Cambiar imagen': 'Change image', 'Elegir video': 'Choose video', 'Cambiar video': 'Change video',
     // Spotify (acciones y estados)
@@ -114,6 +114,9 @@
     'Esto solo funciona dentro de la app de escritorio.': 'This only works inside the desktop app.',
     'Sin coincidencia, se usará el ícono genérico': 'No match, the generic icon will be used',
     'Nombre del nuevo perfil:': 'New profile name:', 'Imagen para el RHub:': 'Image for the RHub:', '¿Deseas limpiar esta acción?': 'Clear this action?',
+    'Ciudad (ej: Santo Domingo)': 'City (e.g. Santo Domingo)',
+    'Actualizaciones': 'Updates', 'Buscar': 'Check', 'Buscando actualizaciones…': 'Checking for updates…',
+    'Reiniciar para actualizar': 'Restart to update', 'No se pudo buscar actualizaciones': 'Could not check for updates',
     'Renombrar': 'Rename', 'Eliminar': 'Delete', 'Cerrar': 'Close', 'Minimizar': 'Minimize', 'Maximizar': 'Maximize', 'Restaurar': 'Restore', 'Abrir RHub': 'Open RHub', 'Salir': 'Quit',
     'Perfil Principal': 'Main Profile', 'Nada': 'None',
     'El cambio de cuenta de Steam solo funciona en Windows.': 'Steam account switching only works on Windows.',
@@ -122,6 +125,11 @@
   };
 
   const RX = [
+    [/^Versión ([\d.]+) · se actualiza sola en la app instalada$/, 'Version $1 · updates itself in the installed app'],
+    [/^Versión ([\d.]+)$/, 'Version $1'], [/^Estás al día · versión ([\d.]+)$/, 'You are up to date · version $1'],
+    [/^Descargando la versión ([\d.]+)… (\d+)%$/, 'Downloading version $1… $2%'], [/^La versión ([\d.]+) está lista$/, 'Version $1 is ready'],
+    [/^Actualización lista: versión ([\d.]+)$/, 'Update ready: version $1'],
+    [/^Disco ([A-Za-z]:)$/, 'Disk $1'],
     [/^Conectado como (.*)$/, 'Connected as $1'], [/^Reproduciendo: (.*)$/, 'Playing: $1'], [/^Capa activa: (.*)$/, 'Active layer: $1'], [/^Activado: (.*)$/, 'Activated: $1'],
     [/^Error al conectar: (.*)$/, 'Connection error: $1'], [/^Botón (\d+)$/, 'Button $1'], [/^Pantalla (\d+)$/, 'Screen $1'],
     [/^(\d+) de (\d+)$/, '$1 of $2'], [/^de (\d+)$/, 'of $1'], [/^Distribución de la pantalla (\d+)$/, 'Layout of screen $1'],

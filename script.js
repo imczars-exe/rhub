@@ -983,6 +983,35 @@ function setupWindowControls() {
   api.winIsMax().then(paint);
 }
 
+// Actualizaciones automáticas: main.js las baja solas; aquí solo se muestra el estado y el botón.
+function setupUpdates() {
+  const api = window.deckAPI;
+  const text = $('#updText'), btn = $('#btnUpdate');
+  if (!api || !api.updateState || !text) return;
+  let notified = false;
+  const paint = (st) => {
+    const lines = {
+      idle: `Versión ${st.current}`,
+      checking: 'Buscando actualizaciones…',
+      latest: `Estás al día · versión ${st.current}`,
+      downloading: `Descargando la versión ${st.version}… ${st.percent}%`,
+      ready: `La versión ${st.version} está lista`,
+      error: 'No se pudo buscar actualizaciones',
+    };
+    text.textContent = st.enabled === false ? `Versión ${st.current} · se actualiza sola en la app instalada` : (lines[st.status] || lines.idle);
+    btn.hidden = st.enabled === false || st.status === 'downloading';
+    btn.disabled = st.status === 'checking';
+    btn.textContent = st.status === 'ready' ? 'Reiniciar para actualizar' : 'Buscar';
+    btn.classList.toggle('btn-primary', st.status === 'ready');
+    if (st.status === 'ready' && !notified) { notified = true; toast(`Actualización lista: versión ${st.version}`, 'success'); }
+  };
+  let last = { enabled: true, status: 'idle', current: '' };
+  const apply = (st) => { last = { ...last, ...st }; paint(last); };
+  btn.onclick = () => { if (last.status === 'ready') api.updateInstall(); else api.updateCheck(); };
+  api.onUpdateState(apply);
+  api.updateState().then(apply);
+}
+
 function setupSettingsUI() {
   const overlay = $('#settingsOverlay');
   const langBtns = $$('.lang-switch [data-lang]');
@@ -1018,7 +1047,7 @@ function setupSettingsUI() {
     }
   };
 }
-document.addEventListener('DOMContentLoaded', () => { setupSettingsUI(); setupWindowControls(); });
+document.addEventListener('DOMContentLoaded', () => { setupSettingsUI(); setupWindowControls(); setupUpdates(); });
 
 function setupTrashZone() {
   const zone = $('#trashZone');
@@ -1327,9 +1356,13 @@ function statInfo(type) {
   return { label: type.toUpperCase(), value: t >= 0 ? String(t) : '--', unit: t >= 0 ? '°C' : '', note: '', level: Math.max(0, t) / 100, temp: true, raw: t };
 }
 
-function statHTML(st, style, width = D.W) {
+function statHTML(st, style, width = D.W, single = false) {
   const lv = Math.max(0, Math.min(1, st.level || 0));
   const pct = lv * 100;
+  if (single && (style === 'minimal' || style === 'terminal')) {   // solo en su hueco: valor grande, no una fila chica
+    const unit = st.temp ? (st.raw >= 0 ? 'C' : '') : st.unit;
+    return `<div class="w-color-stat ${style === 'terminal' ? 'term' : 'plain'}"><b>${st.value}${unit}</b><span class="dim">${st.label}</span></div>`;
+  }
   if (style === 'minimal') {
     return `<div class="w-row"><span class="dim">${st.label}</span><span class="w-bar"><i style="width:${pct}%"></i></span><b>${st.value}${st.unit}</b></div>`;
   }
@@ -1378,7 +1411,37 @@ function spotifyCompactHTML() {
   return `<div class="w-sp"><b>${esc(snap.title)}</b><span class="dim">${esc(snap.artist || '')}</span><span class="w-bar sp"><i style="width:${pct}%"></i></span></div>`;
 }
 
-function widgetHTML(w, rect, style) {
+// Widgets con datos (clima, temporizador, disco, red): main.js manda { clave: { label, value } } cada segundo.
+let widgetValues = {};
+const INFO_SAMPLES = {
+  weather: { label: 'Ciudad, Despejado', value: '28C' },
+  disk: { label: 'C: 120G libres', value: '62%' }, net: { label: 'Red Mbps', value: '{ 9.6~} 2.4' },
+};
+function infoHTML(w, sample) {
+  const key = D.widgetKey(w);
+  const v = widgetValues[key] || (sample && INFO_SAMPLES[w.type]) || { label: '', value: '--' };
+  return `<div class="w-info" data-key="${esc(key)}"><b class="w-info-val${v.value.includes('~') ? ' two' : ''}">${infoValueHTML(v.value)}</b><span class="w-info-label">${esc(v.label)}</span></div>`;
+}
+// "~" = salto de línea; "{" y "}" = flechas de bajada y subida (en el firmware salen del juego de caracteres de la pantalla).
+const infoValueHTML = (value) => esc(value).replace(/~/g, '<br>').replace(/\{/g, '↓').replace(/\}/g, '↑');
+// Solo cambia los textos (no repinta el visor: así no reinicia videos ni animaciones).
+function updateInfoWidgets() {
+  document.querySelectorAll('.w-info').forEach((el) => {
+    const v = widgetValues[el.dataset.key];
+    if (!v) return;
+    const val = el.querySelector('.w-info-val');
+    val.innerHTML = infoValueHTML(v.value);
+    val.classList.toggle('two', v.value.includes('~'));
+    el.querySelector('.w-info-label').textContent = v.label;
+  });
+}
+function setupInfoWidgets() {
+  if (!window.deckAPI || !window.deckAPI.onWidgetValues) return;
+  window.deckAPI.onWidgetValues((v) => { widgetValues = v || {}; updateInfoWidgets(); });
+}
+document.addEventListener('DOMContentLoaded', () => setupInfoWidgets());
+
+function widgetHTML(w, rect, style, sample) {
   const [, , rw] = rect;
   switch (w.type) {
     case 'clock': return clockHTML(style, rw >= 150);
@@ -1386,8 +1449,9 @@ function widgetHTML(w, rect, style) {
       const rows = style === 'minimal' || style === 'terminal';
       return `<div class="${rows ? 'w-rows' : 'tft-stats'}">${['ram', 'cpu', 'gpu'].map((t) => statHTML(statInfo(t), style, rw)).join('')}</div>`;
     }
-    case 'cpu': case 'ram': case 'gpu': return `<div class="w-single">${statHTML(statInfo(w.type), style, rw)}</div>`;
+    case 'cpu': case 'ram': case 'gpu': return `<div class="w-single">${statHTML(statInfo(w.type), style, rw, true)}</div>`;
     case 'spotify': return rw === D.W ? buildNowPlayingHTML() : spotifyCompactHTML();
+    case 'weather': case 'disk': case 'net': return infoHTML(w, sample);
     case 'text': return w.text ? `<div class="w-text">${style === 'terminal' ? '&gt; ' : ''}${esc(w.text)}</div>` : '';
     case 'image': return w.image ? `<img class="w-media" src="${w.image}" alt="">` : '<div class="w-empty">Imagen</div>';
     case 'video': return w.video ? `<video class="w-media" src="${fileUrl(w.video)}" autoplay muted loop playsinline></video>` : '<div class="w-empty">Video</div>';
@@ -1407,8 +1471,8 @@ function applyPreviewTheme() {
 }
 
 // Rellena el contenedor con la pantalla activa (sin animaciones).
-function paintOledScreen(content, index = currentScreenIndex) {
-  const screen = state.display.screens[index];
+function paintOledScreen(content, index = currentScreenIndex, screenOverride = null) {
+  const screen = screenOverride || state.display.screens[index];
   const style = state.display.style;
   const rects = D.slotRects(screen);
   content.dataset.screen = index;
@@ -1643,6 +1707,16 @@ function slotExtraHTML(w, i, k) {
   if (w.type === 'text') {
     return `<input type="text" class="input se-text" data-i="${i}" data-k="${k}" maxlength="${D.MAX_TEXT}" placeholder="Texto a mostrar" value="${esc(w.text || '')}">`;
   }
+  if (w.type === 'weather') {
+    return `<input type="text" class="input se-city" data-i="${i}" data-k="${k}" maxlength="${D.MAX_CITY}" placeholder="Ciudad (ej: Santo Domingo)" value="${esc(w.city || '')}">`;
+  }
+  if (w.type === 'disk') {
+    const sys = (seDrives.find((x) => x.sys) || seDrives[0] || {}).mount;
+    const cur = w.drive || sys;
+    const list = seDrives.length ? seDrives : (w.drive ? [{ mount: w.drive }] : []);
+    const chips = list.map((x) => `<button type="button" class="se-drive${x.mount === cur ? ' on' : ''}" data-i="${i}" data-k="${k}" data-drive="${x.mount}" aria-pressed="${x.mount === cur}" aria-label="Disco ${x.mount}">${x.mount}${x.sizeGB ? `<small>${x.sizeGB} GB</small>` : ''}</button>`).join('');
+    return `<div class="se-drives" role="group" aria-label="Disco">${chips}</div>`;
+  }
   if (w.type === 'image') {
     return `<div class="se-media">${w.image ? `<img src="${w.image}" alt="">` : ''}
       <button type="button" class="btn se-pick" data-kind="image" data-i="${i}" data-k="${k}">${w.image ? 'Cambiar imagen' : 'Elegir imagen'}</button></div>`;
@@ -1656,6 +1730,38 @@ function slotExtraHTML(w, i, k) {
 }
 
 let seIndex = 0;   // pantalla que muestra la vista previa del editor (no cambia la del RHub)
+// Miniatura de un widget a la medida de su hueco, con los colores y el estilo actuales.
+function miniWidgetHTML(type, rect) {
+  const { accent, bg, text } = state.display.colors;
+  const [, , rw, rh] = rect;
+  const w = { type, text: type === 'text' ? 'Tu texto' : '' };
+  return `<div class="oled-preview se-mini" data-style="${state.display.style}" style="aspect-ratio:${rw} / ${rh};--tft-accent:${accent};--tft-bg:${bg};--tft-text:${text}">
+    <div class="oled-preview-content"><div class="tft-slot w-${type}" style="left:0;top:0;width:100%;height:100%">${type === 'none' ? '' : widgetHTML(w, rect, state.display.style, true)}</div></div></div>`;
+}
+function widgetLabel(type) { return (D.WIDGETS.find((m) => m.id === type) || {}).label || type; }
+
+// Elegir widget: un botón con la miniatura del actual y, al abrirlo, una cuadrícula con todos.
+function widgetPickerHTML(s, i, k) {
+  const rect = D.slotRects(s)[k];
+  const cur = s.slots[k].type;
+  const open = sePicker && sePicker.i === i && sePicker.k === k;
+  const btn = `<button type="button" class="se-slot-btn${open ? ' open' : ''}" data-i="${i}" data-k="${k}" aria-expanded="${open}" aria-label="Widget de ${SLOT_LABELS[s.layout][k]}">
+      <span class="se-slot-btn-prev">${miniWidgetHTML(cur, rect)}</span>
+      <span class="se-slot-btn-name">${widgetLabel(cur)}</span>
+      <svg viewBox="0 0 12 8" fill="none"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>`;
+  if (!open) return btn;
+  const aspect = rect[2] / rect[3];
+  const tiles = D.WIDGETS.filter((m) => !m.fullOnly || s.layout === 'full').map((m) => `
+    <button type="button" class="se-tile${m.id === cur ? ' on' : ''}" data-i="${i}" data-k="${k}" data-w="${m.id}" aria-pressed="${m.id === cur}">
+      ${miniWidgetHTML(m.id, rect)}
+      <span class="se-tile-name">${m.label}</span>
+    </button>`).join('');
+  return btn + `<div class="se-picker" style="--tile-min:${aspect > 2 ? 150 : aspect > 1.2 ? 110 : 84}px">${tiles}</div>`;
+}
+let sePicker = null;   // { i, k }: hueco con la cuadrícula abierta
+let seDrives = [];     // unidades del PC para el widget Disco: [{ mount, sizeGB, sys }]
+
 function renderEditorPreview() {
   const box = $('#screenEditorOverlay'), c = $('#seContent');
   if (!c || !box.classList.contains('open') || !state.display.screens[seIndex]) return;
@@ -1693,9 +1799,7 @@ function renderScreenEditor() {
       ${s.slots.map((w, k) => `
         <div class="se-slot">
           <span class="se-slot-label">${SLOT_LABELS[s.layout][k]}</span>
-          <select class="input se-widget" data-i="${i}" data-k="${k}" aria-label="Widget de ${SLOT_LABELS[s.layout][k]}">
-            ${D.WIDGETS.filter((m) => !m.fullOnly || s.layout === 'full').map((m) => `<option value="${m.id}"${m.id === w.type ? ' selected' : ''}>${m.label}</option>`).join('')}
-          </select>
+          ${widgetPickerHTML(s, i, k)}
           ${slotExtraHTML(w, i, k)}
         </div>`).join('')}
     </div>`).join('');
@@ -1726,7 +1830,16 @@ function setupScreenEditor() {
   let pickTarget = null;
   let textTimer = null;
 
-  const open = () => { seIndex = currentScreenIndex; overlay.classList.add('open'); renderScreenEditor(); };
+  const open = () => {
+    seIndex = currentScreenIndex; sePicker = null; overlay.classList.add('open'); renderScreenEditor();
+    if (window.deckAPI && window.deckAPI.widgetDrives) {   // las unidades del PC, para el widget Disco
+      window.deckAPI.widgetDrives().then((list) => {
+        const sys = (list.find((x) => x.mount.toUpperCase() === 'C:') || list[0] || {}).mount;
+        seDrives = list.map((x) => ({ ...x, sys: x.mount === sys }));
+        renderScreenEditor();
+      });
+    }
+  };
   // La vista previa del editor sigue a la pantalla que tocas o editas.
   overlay.addEventListener('pointerdown', (e) => {
     const card = e.target.closest('.se-screen');
@@ -1742,6 +1855,26 @@ function setupScreenEditor() {
     if (style) {
       const def = D.STYLES.find((s) => s.id === style.dataset.style);
       updateDisplay((d) => { d.style = def.id; d.colors = { ...def.colors }; }, { pushMedia: false });
+      return;
+    }
+    const tile = e.target.closest('.se-tile');
+    if (tile) {
+      const i = +tile.dataset.i, k = +tile.dataset.k;
+      sePicker = null;
+      updateDisplay((d) => { d.screens[i].slots[k] = { type: tile.dataset.w }; });
+      return;
+    }
+    const drive = e.target.closest('.se-drive');
+    if (drive) {
+      const i = +drive.dataset.i, k = +drive.dataset.k;
+      updateDisplay((d) => { d.screens[i].slots[k].drive = drive.dataset.drive; });
+      return;
+    }
+    const slotBtn = e.target.closest('.se-slot-btn');
+    if (slotBtn) {
+      const i = +slotBtn.dataset.i, k = +slotBtn.dataset.k;
+      sePicker = sePicker && sePicker.i === i && sePicker.k === k ? null : { i, k };
+      renderScreenEditor();
       return;
     }
     const act = e.target.closest('.se-icon');
@@ -1780,17 +1913,32 @@ function setupScreenEditor() {
   overlay.addEventListener('change', (e) => {
     const t = e.target;
     if (t.classList.contains('se-layout')) {
+      sePicker = null;
       updateDisplay((d) => { d.screens[+t.dataset.i].layout = t.value; });
-    } else if (t.classList.contains('se-widget')) {
-      updateDisplay((d) => { d.screens[+t.dataset.i].slots[+t.dataset.k] = { type: t.value }; });
     }
   });
 
+  // Al pasar el mouse por un widget, la vista previa de arriba lo muestra puesto en ese hueco.
+  const hoverPreview = (tile) => {
+    const c = $('#seContent');
+    if (!c) return;
+    if (!tile) { renderEditorPreview(); return; }
+    const i = +tile.dataset.i, k = +tile.dataset.k;
+    const base = state.display.screens[i];
+    const test = { ...base, slots: base.slots.map((w, n) => (n === k ? { type: tile.dataset.w } : w)) };
+    paintOledScreen(c, i, test);
+    $('#sePreviewLabel').textContent = `Pantalla ${i + 1}`;
+  };
+  overlay.addEventListener('mouseover', (e) => { const t = e.target.closest('.se-tile'); if (t) hoverPreview(t); });
+  overlay.addEventListener('mouseout', (e) => { if (e.target.closest('.se-tile') && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.se-tile'))) hoverPreview(null); });
+
   overlay.addEventListener('input', (e) => {
     const t = e.target;
-    if (!t.classList.contains('se-text')) return;
+    const field = ['se-text', 'se-city'].find((c) => t.classList.contains(c));
+    if (!field) return;
+    const prop = { 'se-text': 'text', 'se-city': 'city' }[field];
     clearTimeout(textTimer);
-    textTimer = setTimeout(() => updateDisplay((d) => { d.screens[+t.dataset.i].slots[+t.dataset.k].text = t.value; },
+    textTimer = setTimeout(() => updateDisplay((d) => { d.screens[+t.dataset.i].slots[+t.dataset.k][prop] = t.value; },
       { pushMedia: false, rerenderEditor: false }), 300);
   });
 

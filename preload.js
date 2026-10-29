@@ -7,6 +7,12 @@ contextBridge.exposeInMainWorld('deckAPI', {
   winClose: () => ipcRenderer.send('win:close'),
   winIsMax: () => ipcRenderer.invoke('win:isMax'),
   onWinState: (cb) => ipcRenderer.on('win:state', (_e, v) => cb(v)),
+  updateState: () => ipcRenderer.invoke('update:state'),
+  updateCheck: () => ipcRenderer.invoke('update:check'),
+  updateInstall: () => ipcRenderer.send('update:install'),
+  onUpdateState: (cb) => ipcRenderer.on('update:state', (_e, s) => cb(s)),
+  widgetDrives: () => ipcRenderer.invoke('widgets:drives'),
+  onWidgetValues: (cb) => ipcRenderer.on('widgets:values', (_e, v) => cb(v)),
   setLanguage: (lang) => ipcRenderer.send('lang:set', lang),
   // --- Puerto serial (reemplaza navigator.serial) ---
   listPorts: () => ipcRenderer.invoke('serial:list'),

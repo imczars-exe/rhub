@@ -1,6 +1,6 @@
 {
   "name": "retro-deck",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "RHub - app de escritorio para tu macropad 3x3 con pantalla TFT y ESP32-C3",
   "main": "main.js",
   "scripts": {
@@ -14,6 +14,7 @@
     "@nut-tree-fork/nut-js": "^4.2.0",
     "@serialport/parser-readline": "^12.0.0",
     "electron-squirrel-startup": "^1.0.1",
+    "electron-updater": "^6.8.11",
     "serialport": "^12.0.0",
     "systeminformation": "^5.23.5"
   },
@@ -44,6 +45,7 @@
       "spotify-actions.js",
       "display.js",
       "i18n.js",
+      "widgets.js",
       "spotify-oled.js"
     ],
     "extraResources": [
@@ -55,6 +57,9 @@
     "directories": {
       "buildResources": "build"
     },
+    "publish": [
+      { "provider": "github", "owner": "imczars-exe", "repo": "rhub" }
+    ],
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico"

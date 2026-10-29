@@ -16,6 +16,8 @@ const spotifyOled = require('./spotify-oled');
 app.setPath('userData', path.join(app.getPath('appData'), 'retro-deck'));
 const SPOTIFY_ACTIONS = require('./spotify-actions');
 const Display = require('./display');
+const { InfoWidgets, infoLine } = require('./widgets');
+const { autoUpdater } = require('electron-updater');
 keyboard.config.autoDelayMs = 15; // velocidad al "tipear" macros de texto
 
 // =============================================================
@@ -123,11 +125,48 @@ function createTray() {
   buildTrayMenu();
   tray.on('double-click', () => { mainWindow.show(); });
 }
+// =============================================================
+// Actualizaciones automáticas (electron-updater lee los releases de GitHub: latest.yml + el instalador).
+// Revisa al abrir y cada 6 horas, baja sola y se instala al salir (o cuando el usuario pulsa Reiniciar).
+// RHUB_UPDATE_URL apunta a otra carpeta/servidor, solo para probar sin publicar nada.
+// =============================================================
+let updateState = { status: 'idle', current: app.getVersion(), version: null, percent: 0, error: null };
+function setUpdate(patch) {
+  updateState = { ...updateState, ...patch };
+  safeSend('update:state', updateState);
+}
+function setupAutoUpdate() {
+  const testUrl = process.env.RHUB_UPDATE_URL;
+  if (!app.isPackaged && !testUrl) return false;   // en desarrollo no hay instalación que actualizar
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  if (testUrl) { autoUpdater.forceDevUpdateConfig = true; autoUpdater.setFeedURL({ provider: 'generic', url: testUrl }); }
+  autoUpdater.on('checking-for-update', () => setUpdate({ status: 'checking', error: null }));
+  autoUpdater.on('update-available', (i) => setUpdate({ status: 'downloading', version: i.version, percent: 0 }));
+  autoUpdater.on('update-not-available', () => setUpdate({ status: 'latest' }));
+  autoUpdater.on('download-progress', (p) => setUpdate({ status: 'downloading', percent: Math.round(p.percent) }));
+  autoUpdater.on('update-downloaded', (i) => setUpdate({ status: 'ready', version: i.version, percent: 100 }));
+  autoUpdater.on('error', (e) => setUpdate({ status: 'error', error: String((e && e.message) || e).slice(0, 160) }));
+  return true;
+}
+let updaterOn = false;
+function checkForUpdates() {
+  if (!updaterOn) return Promise.resolve(updateState);
+  return autoUpdater.checkForUpdates().then(() => updateState).catch(() => updateState);
+}
+ipcMain.handle('update:state', () => ({ ...updateState, enabled: updaterOn }));
+ipcMain.handle('update:check', () => checkForUpdates());
+ipcMain.on('update:install', () => {
+  if (updateState.status !== 'ready') return;
+  isQuitting = true;                               // si no, la X solo manda la ventana a la bandeja
+  autoUpdater.quitAndInstall(true, true);          // silencioso y vuelve a abrir RHub
+});
+
 ipcMain.on('win:min', () => mainWindow && mainWindow.minimize());
 ipcMain.on('win:max', () => { if (!mainWindow) return; if (mainWindow.isMaximized()) mainWindow.unmaximize(); else mainWindow.maximize(); });
 ipcMain.on('win:close', () => mainWindow && mainWindow.close()); // la manda a la bandeja
 ipcMain.handle('win:isMax', () => !!mainWindow && mainWindow.isMaximized());
-ipcMain.on('lang:set', (_e, lang) => { trayLang = lang === 'en' ? 'en' : 'es'; if (tray) buildTrayMenu(); });
+ipcMain.on('lang:set', (_e, lang) => { trayLang = lang === 'en' ? 'en' : 'es'; info.setLang(trayLang); if (tray) buildTrayMenu(); });
 
 // Una sola instancia: si ya hay una abierta (aunque esté escondida en la bandeja),
 // abrir el programa otra vez solo trae esa ventana al frente.
@@ -155,6 +194,11 @@ app.whenReady().then(() => {
     createTray();
   } catch (e) {
     console.error('[tray] no se pudo crear la bandeja:', e.message);
+  }
+  updaterOn = setupAutoUpdate();
+  if (updaterOn) {
+    setTimeout(checkForUpdates, 15000);                 // sin estorbar el arranque
+    setInterval(checkForUpdates, 6 * 60 * 60 * 1000);
   }
 });
 
@@ -236,7 +280,33 @@ function sendDisplayConfig(force = false) {
   if (!force && out === lastDisplaySent) return;
   lastDisplaySent = out;
   port.write(out);
+  infoSent = {};   // SCD borra los textos del ESP32: los widgets con datos se vuelven a mandar
 }
+
+// ---- Widgets con datos (clima, disco, red): widgets.js los calcula cada segundo ----
+const info = new InfoWidgets({ si });
+let infoSent = {};
+let infoValues = {};
+
+function pushInfoWidgets() {
+  const display = displayConfig();
+  infoValues = info.tick(display);
+  safeSend('widgets:values', infoValues);
+  if (!port || !port.isOpen) return;
+  const screen = display.screens[oledScreen];
+  if (!screen) return;
+  screen.slots.forEach((w, k) => {
+    const v = infoValues[Display.widgetKey(w)];
+    if (!v || !Display.INFO_TYPES.includes(w.type)) return;
+    const line = `SCT:${oledScreen},${k},${infoLine(v)}
+`;
+    if (infoSent[oledScreen + ',' + k] === line) return;
+    infoSent[oledScreen + ',' + k] = line;
+    port.write(line);
+  });
+}
+setInterval(pushInfoWidgets, 1000);
+ipcMain.handle('widgets:drives', () => info.listDrives().catch(() => []));
 
 const IMG_CHUNK_PX = 1536;           // 3 KB por trozo: cabe en el búfer serie de 4 KB del ESP32
 const IMG_ACK_TIMEOUT_MS = 1000;
@@ -694,6 +764,8 @@ async function sendArtToOled(url) {
 function onOledScreen(n) {
   const wasSpotify = screenHasSpotify(oledScreen);
   oledScreen = n;
+  for (const key of Object.keys(infoSent)) if (key.startsWith(n + ',')) delete infoSent[key];   // la pantalla que entra se refresca ya
+  pushInfoWidgets();
   updateSpotifyView();
   clearTimeout(oledEnterTimer);
   if (screenHasSpotify(n) && !wasSpotify) {

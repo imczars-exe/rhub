@@ -34,7 +34,8 @@
  *     SCD:<i>,<layout>,<w0>,<w1>,<w2>
  *                   -> distribución de la pantalla i (0 1 hueco · 1 dos · 2 tres · 3 grande + 2 chicos)
  *                      y el widget de cada hueco (ver enum Widget)
- *     SCT:<i>,<hueco>,<texto>   -> texto del widget "Texto"
+ *     SCT:<i>,<hueco>,<texto>   -> texto del widget "Texto"; en clima, disco
+ *                      y red es "etiqueta|valor" y la app lo renueva cada segundo
  *     IMG:<x>,<y>,<w>,<h>,<escala>,<inicio>,<cantidad>  + <cantidad>*2 bytes RGB565 little-endian
  *                   -> trozo de una imagen o cuadro de video para el búfer de imagen; responde ACK.
  *                      escala 2 = cada píxel se dibuja 2x2 (el video viaja a media resolución).
@@ -154,7 +155,7 @@ const unsigned long DEBOUNCE_MS = 30;
 
 // ---------- Pantallas (las arma el usuario en la app: SCN/SCD/SCT) ----------
 // Cada pantalla tiene una distribución con 1-3 huecos y un widget por hueco.
-enum Widget : uint8_t { W_NONE, W_CLOCK, W_SYSTEM, W_CPU, W_RAM, W_GPU, W_SPOTIFY, W_IMAGE, W_TEXT, W_VIDEO, W_COUNT };
+enum Widget : uint8_t { W_NONE, W_CLOCK, W_SYSTEM, W_CPU, W_RAM, W_GPU, W_SPOTIFY, W_IMAGE, W_TEXT, W_VIDEO, W_WEATHER, W_DISK, W_NET, W_COUNT };
 #define MAX_SCREENS 8
 #define MAX_TEXT 40
 
@@ -939,9 +940,17 @@ static void getStat(uint8_t widget, StatInfo* st) {
   }
 }
 
-static void drawStat(const StatInfo& st, int x, int y, int w, int h) {
+static void drawStat(const StatInfo& st, int x, int y, int w, int h, bool single = false) {
   const float lv = st.level < 0 ? 0 : (st.level > 1 ? 1 : st.level);
   char v[16];
+  if (single && (uiStyle == ST_MINIMAL || uiStyle == ST_TERMINAL)) {   // solo en su hueco: valor grande, no una fila chica
+    snprintf(v, sizeof(v), "%s%s", st.value, st.temp ? (st.raw >= 0 ? "C" : "") : st.unit);
+    const uint8_t s = fitSize(v, w - 10, h - 18, 4);
+    const int top = y + (h - 8 * s - 12) / 2;
+    printCentered(v, x, w, top, s, st.raw < 0 ? C_DIM : (uiStyle == ST_TERMINAL ? C_ACCENT : C_TEXT));
+    printCentered(st.label, x, w, top + 8 * s + 4, 1, C_DIM);
+    return;
+  }
   switch (uiStyle) {
     case ST_MINIMAL: {                       // una fila: etiqueta · barra · valor
       snprintf(v, sizeof(v), "%s%s", st.value, st.unit);
@@ -1019,6 +1028,74 @@ static void drawText(const char* text, int x, int y, int w, int h) {
   else printClipped(buf, x + 8, y + (h - 8) / 2, w - 16, 1, color);
 }
 
+// ---------- Widgets con datos: clima, disco y red ----------
+// La app manda "etiqueta|valor" por SCT: el valor va grande (en dos filas si trae "~"; { y } son las flechas de bajada y subida) y la
+// etiqueta chica debajo, partida en dos renglones si no cabe en el hueco.
+// Texto chico centrado; si aun así no cabe, se recorta.
+static void printFit(const char* s, int x, int w, int y, uint16_t color) {
+  if (textW(s, 1) <= w - 8) printCentered(s, x, w, y, 1, color);
+  else printClipped(s, x + 4, y, w - 8, 1, color);
+}
+
+static void drawInfo(const char* text, int x, int y, int w, int h) {
+  if (!text[0]) return;
+  char label[MAX_TEXT + 1], value[MAX_TEXT + 1];
+  const char* bar = strchr(text, '|');
+  if (bar) {
+    const size_t n = bar - text;
+    memcpy(label, text, n);
+    label[n] = '\0';
+    strncpy(value, bar + 1, MAX_TEXT);
+  } else {
+    label[0] = '\0';
+    strncpy(value, text, MAX_TEXT);
+  }
+  value[MAX_TEXT] = '\0';
+
+  // Etiqueta: una línea si cabe; si no, se parte en el último espacio que quepa (la segunda se recorta).
+  const int maxChars = (w - 8) / 6;
+  char line1[MAX_TEXT + 1], line2[MAX_TEXT + 1];
+  strncpy(line1, label, MAX_TEXT);
+  line1[MAX_TEXT] = '\0';
+  line2[0] = '\0';
+  if ((int)strlen(label) > maxChars && maxChars > 3) {
+    int cut = maxChars;
+    while (cut > 0 && label[cut] != ' ') cut--;
+    if (cut == 0) cut = maxChars;                    // palabra sin espacios: se corta a la fuerza
+    memcpy(line1, label, cut);
+    line1[cut] = '\0';
+    strncpy(line2, label + cut + (label[cut] == ' ' ? 1 : 0), MAX_TEXT);
+    line2[MAX_TEXT] = '\0';
+  }
+  const int labelLines = !label[0] ? 0 : (line2[0] ? 2 : 1);
+
+  // Valor: una o dos filas, lo más grande que quepa.
+  char* tilde = strchr(value, '~');
+  char row2[MAX_TEXT + 1];
+  row2[0] = '\0';
+  if (tilde) {
+    *tilde = '\0';
+    strncpy(row2, tilde + 1, MAX_TEXT);
+    row2[MAX_TEXT] = '\0';
+  }
+  // Flechas: el juego de caracteres de la pantalla trae ↑ (0x18) y ↓ (0x19); la app manda } y { en su lugar.
+  for (char* p = value; *p; p++) { if (*p == '{') *p = 0x19; else if (*p == '}') *p = 0x18; }
+  for (char* p = row2; *p; p++) { if (*p == '{') *p = 0x19; else if (*p == '}') *p = 0x18; }
+  const int rows = row2[0] ? 2 : 1;
+  const int availH = h - 6 - (labelLines ? 4 + 9 * labelLines : 0);
+  const int longest = textW(value, 1) > textW(row2, 1) ? 1 : 2;     // cuál de las dos filas es más ancha
+  uint8_t s = fitSize(longest == 1 ? value : row2, w - 12, availH / rows, 4);
+  const uint16_t color = (uiStyle == ST_TERMINAL || uiStyle == ST_COLOR) ? C_ACCENT : C_TEXT;
+  const int blockH = rows * 8 * s + (rows - 1) * 3 + (labelLines ? 4 + 9 * labelLines : 0);
+  int top = y + (h - blockH) / 2;
+  printCentered(value, x, w, top, s, color);
+  if (rows == 2) { top += 8 * s + 3; printCentered(row2, x, w, top, s, color); }
+  if (!labelLines) return;
+  top += 8 * s + 4;
+  printFit(line1, x, w, top, C_DIM);
+  if (line2[0]) printFit(line2, x, w, top + 9, C_DIM);
+}
+
 // ---------- Widgets: imagen y video (desde el búfer de imagen) ----------
 static void drawImageRect(int x, int y, int w, int h) {
   for (int r = 0; r < h; r++) frame.drawRGBBitmap(x, y + r, &imgBuf[(y + r) * SCREEN_WIDTH + x], w, 1);
@@ -1036,7 +1113,7 @@ static void drawCurrentScreen() {
       case W_CPU: case W_RAM: case W_GPU: {
         StatInfo st;
         getStat(s.widget[k], &st);
-        drawStat(st, x, y, w, h);
+        drawStat(st, x, y, w, h, true);
         break;
       }
       case W_SPOTIFY:
@@ -1045,6 +1122,7 @@ static void drawCurrentScreen() {
         break;
       case W_IMAGE: case W_VIDEO: drawImageRect(x, y, w, h); break;
       case W_TEXT:  drawText(s.text[k], x, y, w, h); break;
+      case W_WEATHER: case W_DISK: case W_NET: drawInfo(s.text[k], x, y, w, h); break;
     }
     // separador entre huecos (no encima de imágenes, que llenan su hueco)
     if (s.widget[k] != W_IMAGE && s.widget[k] != W_VIDEO) {

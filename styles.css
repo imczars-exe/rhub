@@ -1709,8 +1709,8 @@ input[type="file"]:hover {
 .se-slot { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; gap: 6px 10px; }
 .se-slot-label { font-size: 12px; color: var(--text-dim); }
 .se-slot .se-widget { padding: 7px 9px; }
-.se-slot .se-text, .se-slot .se-media { grid-column: 2; }
-.se-slot .se-text { padding: 7px 9px; }
+.se-slot .se-text, .se-slot .se-city, .se-slot .se-media { grid-column: 2; }
+.se-slot .se-text, .se-slot .se-city { padding: 7px 9px; }
 .se-media { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .se-media img { width: 54px; height: 30px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); }
 .se-file { font-size: 12px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -1739,3 +1739,36 @@ header button, header .conn-badge, header .conn-group { -webkit-app-region: no-d
 .win-btn:hover { background: rgba(255,255,255,.08); color: var(--text); }
 .win-btn:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
 .win-close:hover { background: #e5484d; color: #fff; }
+
+/* Widgets con datos (clima, temporizador, disco, red) en el visor */
+.w-info { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4%; height: 100%; padding: 0 5%; text-align: center; }
+.w-info-val { font-size: min(44cqh, 15cqw); font-weight: 700; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.w-info-label { font-size: min(13cqh, 5cqw); line-height: 1.2; color: var(--tft-dim); text-align: center; max-width: 100%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.w-info-val.two { font-size: min(27cqh, 11cqw); line-height: 1.1; }
+.w-color-stat.plain b { color: var(--tft-text); }
+.w-color-stat.term b { color: var(--tft-accent); }
+.oled-preview[data-style="terminal"] .w-info-val, .oled-preview[data-style="color"] .w-info-val { color: var(--tft-accent); }
+
+/* Elegir widget con miniaturas (en vez de un desplegable) */
+.se-slot-btn { grid-column: 2; display: flex; align-items: center; gap: 10px; padding: 5px 10px 5px 5px; background: var(--panel-2, #151518); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); cursor: pointer; text-align: left; transition: border-color .15s; }
+.se-slot-btn:hover, .se-slot-btn.open { border-color: var(--text-dim); }
+.se-slot-btn:focus-visible, .se-tile:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.se-slot-btn-prev { width: 84px; flex: none; }
+.se-slot-btn-name { flex: 1; font-size: 13px; font-weight: 600; min-width: 0; }
+.se-slot-btn svg { width: 11px; height: 8px; flex: none; color: var(--text-dim); transition: transform .15s; }
+.se-slot-btn.open svg { transform: rotate(180deg); }
+.se-picker { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 110px), 1fr)); gap: 8px; padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.se-tile { display: flex; flex-direction: column; gap: 5px; padding: 5px; background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-dim); transition: border-color .15s, background .15s; }
+.se-tile:hover { background: var(--panel); border-color: var(--border); color: var(--text); }
+.se-tile.on { border-color: var(--text); color: var(--text); }
+.se-tile-name { font-size: 11.5px; text-align: center; }
+.oled-preview.se-mini { width: 100%; box-shadow: none; border-radius: 4px; pointer-events: none; }
+.se-mini .tft-slot { pointer-events: none; }
+
+/* Widget Disco: elegir unidad */
+.se-slot .se-drives { grid-column: 2; display: flex; flex-wrap: wrap; gap: 6px; }
+.se-drive { display: flex; flex-direction: column; align-items: center; min-width: 58px; padding: 5px 10px; background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-size: 13px; font-weight: 600; cursor: pointer; transition: border-color .15s, color .15s; }
+.se-drive small { font-size: 10px; font-weight: 400; color: var(--text-faint); }
+.se-drive:hover { border-color: var(--text-dim); color: var(--text); }
+.se-drive.on { border-color: var(--text); color: var(--text); }
+.se-drive:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
