@@ -43,6 +43,7 @@
       "spotify.js",
       "spotify-actions.js",
       "display.js",
+      "i18n.js",
       "spotify-oled.js"
     ],
     "extraResources": [

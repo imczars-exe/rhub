@@ -437,8 +437,7 @@ async function connectSerial() {
     await state.port.open({ baudRate: 115200 });
     state.connected = true;
     $('#connBadge').className = 'conn-badge connected'; $('#connText').textContent = 'Arduino Conectado';
-    $('#btnConnectText').textContent = 'Desconectar';
-    $('#btnConnect').classList.add('is-connected');
+    $('#btnConnect').style.display = 'none'; // sin botón de desconectar
     toast('Arduino conectado', 'success');
     readSerial();
   } catch (e) {}
@@ -450,8 +449,7 @@ function setupElectronSerialListeners() {
     state.connected = connected;
     $('#connBadge').className = 'conn-badge' + (connected ? ' connected' : '');
     $('#connText').textContent = connected ? 'RHub conectado' : 'Desconectado';
-    $('#btnConnectText').textContent = connected ? 'Desconectar' : 'Conectar';
-    $('#btnConnect').classList.toggle('is-connected', connected);
+    $('#btnConnect').style.display = connected ? 'none' : ''; // conectado: sin botón de desconectar
     if (connected) { toast('RHub conectado', 'success'); schedulePushMedia(800); }
     else stopVideoStream();
   });
@@ -948,7 +946,7 @@ function clearAction() {
   const idx = state.selectedIndex;
   if (idx === null) return;
 
-  if (!confirm('¿Deseas limpiar esta acción?')) return;
+  if (!confirm(i18n.t('¿Deseas limpiar esta acción?'))) return;
 
   clearButtonAt(idx);
 }
@@ -968,8 +966,30 @@ function clearButtonAt(idx) {
   renderAll();
 }
 
+function setupWindowControls() {
+  const api = window.deckAPI;
+  if (!api || !api.winMinimize) return;
+  const max = $('#winMax');
+  const paint = (isMax) => {
+    max.title = max.ariaLabel = isMax ? 'Restaurar' : 'Maximizar';
+    max.innerHTML = isMax
+      ? '<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="2.5" width="7" height="7"/><path d="M2.5 2.5V0.5h7v7h-2"/></svg>'
+      : '<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="9" height="9"/></svg>';
+  };
+  $('#winMin').onclick = api.winMinimize;
+  max.onclick = api.winToggleMax;
+  $('#winClose').onclick = api.winClose;
+  api.onWinState(paint);
+  api.winIsMax().then(paint);
+}
+
 function setupSettingsUI() {
   const overlay = $('#settingsOverlay');
+  const langBtns = $$('.lang-switch [data-lang]');
+  const markLang = () => langBtns.forEach((b) => b.classList.toggle('on', b.dataset.lang === i18n.getLang()));
+  langBtns.forEach((b) => { b.onclick = () => { i18n.setLang(b.dataset.lang); renderAll(); markLang(); }; });
+  markLang();
+  document.addEventListener('langchange', markLang);
   const toggle = $('#toggleAutoLaunch');
   if (!overlay || !toggle) return;
 
@@ -998,7 +1018,7 @@ function setupSettingsUI() {
     }
   };
 }
-document.addEventListener('DOMContentLoaded', () => setupSettingsUI());
+document.addEventListener('DOMContentLoaded', () => { setupSettingsUI(); setupWindowControls(); });
 
 function setupTrashZone() {
   const zone = $('#trashZone');
@@ -2137,7 +2157,7 @@ function renderSpotifySettings() {
   if (msg && msg.dataset.kind !== 'error') {
     if (st.state === 'connected' && st.error) { msg.textContent = st.error; msg.dataset.kind = 'warn'; }
     else if (st.state === 'connected' && st.reauthBy) {
-      msg.textContent = `Spotify pide reconectar cada ~6 meses (próxima vez: hacia el ${new Date(st.reauthBy).toLocaleDateString('es')}).`;
+      msg.textContent = `Spotify pide reconectar cada ~6 meses (próxima vez: hacia el ${new Date(st.reauthBy).toLocaleDateString(i18n.getLang())}).`;
       msg.dataset.kind = 'info';
     } else { msg.textContent = ''; msg.dataset.kind = ''; }
   }

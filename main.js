@@ -79,6 +79,7 @@ function createWindow() {
     height: 860,
     backgroundColor: '#0a0a0b',
     icon: resolveIconPath('icon.png') || undefined,
+    frame: false, // la barra de título es el <header> de la app (con sus propios botones)
     autoHideMenuBar: true, // por si algún día se necesita, Alt la vuelve a mostrar
     show: !startHidden,
     webPreferences: {
@@ -87,6 +88,9 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+  const sendMax = () => mainWindow.webContents.send('win:state', mainWindow.isMaximized());
+  mainWindow.on('maximize', sendMax);
+  mainWindow.on('unmaximize', sendMax);
   mainWindow.loadFile('index.html');
   mainWindow.webContents.once('did-finish-load', () => {
     startAutoConnect();
@@ -103,17 +107,27 @@ function createWindow() {
   });
 }
 
+const TRAY_TEXT = { es: { open: 'Abrir RHub', quit: 'Salir' }, en: { open: 'Open RHub', quit: 'Quit' } };
+let trayLang = 'es';
+function buildTrayMenu() {
+  const txt = TRAY_TEXT[trayLang];
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: txt.open, click: () => { mainWindow.show(); } },
+    { type: 'separator' },
+    { label: txt.quit, click: () => { isQuitting = true; app.quit(); } },
+  ]));
+}
 function createTray() {
   tray = new Tray(getTrayIcon());
   tray.setToolTip('RHub');
-  const menu = Menu.buildFromTemplate([
-    { label: 'Abrir RHub', click: () => { mainWindow.show(); } },
-    { type: 'separator' },
-    { label: 'Salir', click: () => { isQuitting = true; app.quit(); } },
-  ]);
-  tray.setContextMenu(menu);
+  buildTrayMenu();
   tray.on('double-click', () => { mainWindow.show(); });
 }
+ipcMain.on('win:min', () => mainWindow && mainWindow.minimize());
+ipcMain.on('win:max', () => { if (!mainWindow) return; if (mainWindow.isMaximized()) mainWindow.unmaximize(); else mainWindow.maximize(); });
+ipcMain.on('win:close', () => mainWindow && mainWindow.close()); // la manda a la bandeja
+ipcMain.handle('win:isMax', () => !!mainWindow && mainWindow.isMaximized());
+ipcMain.on('lang:set', (_e, lang) => { trayLang = lang === 'en' ? 'en' : 'es'; if (tray) buildTrayMenu(); });
 
 // Una sola instancia: si ya hay una abierta (aunque esté escondida en la bandeja),
 // abrir el programa otra vez solo trae esa ventana al frente.

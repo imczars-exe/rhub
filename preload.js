@@ -2,6 +2,12 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 // Todo lo que script.js puede llamar como window.deckAPI.algo()
 contextBridge.exposeInMainWorld('deckAPI', {
+  winMinimize: () => ipcRenderer.send('win:min'),
+  winToggleMax: () => ipcRenderer.send('win:max'),
+  winClose: () => ipcRenderer.send('win:close'),
+  winIsMax: () => ipcRenderer.invoke('win:isMax'),
+  onWinState: (cb) => ipcRenderer.on('win:state', (_e, v) => cb(v)),
+  setLanguage: (lang) => ipcRenderer.send('lang:set', lang),
   // --- Puerto serial (reemplaza navigator.serial) ---
   listPorts: () => ipcRenderer.invoke('serial:list'),
   connectSerial: (path) => ipcRenderer.invoke('serial:connect', path),

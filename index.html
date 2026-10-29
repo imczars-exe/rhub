@@ -376,6 +376,11 @@ main {
     Configuración
   </button>
 
+  <div class="win-controls">
+    <button type="button" id="winMin" class="win-btn" title="Minimizar" aria-label="Minimizar"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><path d="M0 5h10"/></svg></button>
+    <button type="button" id="winMax" class="win-btn" title="Maximizar" aria-label="Maximizar"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="9" height="9"/></svg></button>
+    <button type="button" id="winClose" class="win-btn win-close" title="Cerrar" aria-label="Cerrar"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><path d="M0 0l10 10M10 0L0 10"/></svg></button>
+  </div>
 </header>
 
 <main>
@@ -829,6 +834,16 @@ main {
     <div class="prompt-title">Configuración</div>
 
     <div class="settings-row">
+      <div class="settings-row-label">Idioma</div>
+      <div class="lang-switch" role="group" aria-label="Idioma">
+        <button type="button" class="btn" data-lang="es" data-no-i18n>Español</button>
+        <button type="button" class="btn" data-lang="en" data-no-i18n>English</button>
+      </div>
+    </div>
+
+    <div class="settings-divider"></div>
+
+    <div class="settings-row">
       <div>
         <div class="settings-row-label">Iniciar con Windows</div>
         <div class="settings-row-sub">Se abre directo en la bandeja del sistema, sin mostrar la ventana</div>
@@ -912,6 +927,7 @@ main {
 </div>
 
 <link rel="stylesheet" href="styles.css">
+<script src="i18n.js"></script>
 <script src="spotify-actions.js"></script>
 <script src="display.js"></script>
 <script src="script.js"></script>
