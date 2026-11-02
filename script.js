@@ -1441,7 +1441,7 @@ function claudeInner(v) {
 function claudeHTML(w, sample) {
   const key = D.widgetKey(w);
   const v = widgetValues[key] || (sample && INFO_SAMPLES.claude) || null;
-  return `<div class="w-claude" data-key="${esc(key)}">${claudeInner(v)}</div>`;
+  return `<div class="cl-wrap" data-key="${esc(key)}">${claudeInner(v)}</div>`;
 }
 function infoHTML(w, sample) {
   if (w.type === 'claude') return claudeHTML(w, sample);
@@ -1453,7 +1453,7 @@ function infoHTML(w, sample) {
 const infoValueHTML = (value) => esc(value).replace(/~/g, '<br>').replace(/\{/g, '↓').replace(/\}/g, '↑');
 // Solo cambia los textos (no repinta el visor: así no reinicia videos ni animaciones).
 function updateInfoWidgets() {
-  document.querySelectorAll('.w-claude').forEach((el) => { const v = widgetValues[el.dataset.key]; if (v) el.innerHTML = claudeInner(v); });
+  document.querySelectorAll('.cl-wrap').forEach((el) => { const v = widgetValues[el.dataset.key]; if (v) el.innerHTML = claudeInner(v); });
   document.querySelectorAll('.w-info').forEach((el) => {
     const v = widgetValues[el.dataset.key];
     if (!v) return;

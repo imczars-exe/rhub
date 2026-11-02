@@ -1777,14 +1777,14 @@ header button, header .conn-badge, header .conn-group { -webkit-app-region: no-d
 .upd-notes { margin-top: 10px; padding: 10px 12px; max-height: 240px; overflow-y: auto; white-space: pre-line; font-size: 13px; line-height: 1.5; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 
 /* Widget Claude: dos ruedas de uso */
-.w-claude { display: flex; align-items: center; justify-content: space-around; gap: 3%; height: 100%; padding: 0 3%; }
-.cl-item { display: flex; align-items: center; gap: 7%; min-width: 0; }
-.cl-ring { position: relative; flex: none; width: min(78cqh, 34cqw); aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
+.cl-wrap { display: grid; grid-template-columns: 1fr 1fr; align-items: center; height: 100%; padding: 0 2%; }
+.cl-item { display: flex; align-items: center; justify-content: center; gap: 6%; min-width: 0; }
+.cl-ring { position: relative; flex: none; width: min(76cqh, 21cqw); aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center;
   background: conic-gradient(var(--tft-accent) calc(var(--p) * 1%), color-mix(in srgb, var(--tft-text) 16%, transparent) 0); }
 .cl-ring::after { content: ''; position: absolute; inset: 11%; border-radius: 50%; background: var(--tft-bg); }
-.cl-ring b { position: relative; z-index: 1; font-size: min(20cqh, 6cqw); font-weight: 700; font-variant-numeric: tabular-nums; }
+.cl-ring b { position: relative; z-index: 1; font-size: min(19cqh, 5.4cqw); font-weight: 700; font-variant-numeric: tabular-nums; }
 .cl-ring.hot { background: conic-gradient(#eb5046 calc(var(--p) * 1%), color-mix(in srgb, var(--tft-text) 16%, transparent) 0); }
 .cl-txt { display: flex; flex-direction: column; align-items: flex-start; gap: 2%; min-width: 0; }
-.cl-txt span { font-size: min(11cqh, 4cqw); color: var(--tft-dim); white-space: nowrap; }
-.cl-txt em { font-style: normal; font-weight: 700; font-size: min(19cqh, 6cqw); line-height: 1.1; white-space: nowrap; }
-@container (max-width: 210px) { .cl-txt { display: none; } .w-claude { justify-content: center; gap: 6%; } .cl-ring { width: min(78cqh, 40cqw); } }
+.cl-txt span { font-size: min(10cqh, 3.2cqw); color: var(--tft-dim); white-space: nowrap; }
+.cl-txt em { font-style: normal; font-weight: 700; font-size: min(18cqh, 5.2cqw); line-height: 1.1; white-space: nowrap; }
+@container (max-width: 210px) { .cl-txt { display: none; } .cl-ring { width: min(78cqh, 40cqw); } }
