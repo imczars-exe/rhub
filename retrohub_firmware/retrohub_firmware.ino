@@ -155,7 +155,7 @@ const unsigned long DEBOUNCE_MS = 30;
 
 // ---------- Pantallas (las arma el usuario en la app: SCN/SCD/SCT) ----------
 // Cada pantalla tiene una distribución con 1-3 huecos y un widget por hueco.
-enum Widget : uint8_t { W_NONE, W_CLOCK, W_SYSTEM, W_CPU, W_RAM, W_GPU, W_SPOTIFY, W_IMAGE, W_TEXT, W_VIDEO, W_WEATHER, W_DISK, W_NET, W_COUNT };
+enum Widget : uint8_t { W_NONE, W_CLOCK, W_SYSTEM, W_CPU, W_RAM, W_GPU, W_SPOTIFY, W_IMAGE, W_TEXT, W_VIDEO, W_WEATHER, W_DISK, W_NET, W_CLAUDE, W_COUNT };
 #define MAX_SCREENS 8
 #define MAX_TEXT 40
 
@@ -1123,12 +1123,61 @@ static void drawCurrentScreen() {
       case W_IMAGE: case W_VIDEO: drawImageRect(x, y, w, h); break;
       case W_TEXT:  drawText(s.text[k], x, y, w, h); break;
       case W_WEATHER: case W_DISK: case W_NET: drawInfo(s.text[k], x, y, w, h); break;
+      case W_CLAUDE: drawClaude(s.text[k], x, y, w, h); break;
     }
     // separador entre huecos (no encima de imágenes, que llenan su hueco)
     if (s.widget[k] != W_IMAGE && s.widget[k] != W_VIDEO) {
       if (x > 0) frame.drawFastVLine(x, y + 8, h - 16, C_TRACK);
       if (y > 0) frame.drawFastHLine(x + 8, y, w - 16, C_TRACK);
     }
+  }
+}
+
+// ---------- Widget Claude: dos ruedas (ventana de 5 h y semana) ----------
+// La app manda "p5,pSemana,reinicio5,reinicioSemana", p. ej. "37,12,2h10m,4d3h" ("--" si no hay dato).
+static void drawRing(int cx, int cy, int R, int th, int pct, uint16_t color) {
+  for (int a = 0; a < 360; a += 2) {                          // pista
+    const float r = a * 0.0174533f;
+    frame.fillCircle(cx + (int)roundf(R * sinf(r)), cy - (int)roundf(R * cosf(r)), th / 2, C_TRACK);
+  }
+  for (int a = 0; a < pct * 360 / 100; a += 2) {              // avance, desde arriba y en sentido horario
+    const float r = a * 0.0174533f;
+    frame.fillCircle(cx + (int)roundf(R * sinf(r)), cy - (int)roundf(R * cosf(r)), th / 2, color);
+  }
+}
+
+static void drawClaude(const char* text, int x, int y, int w, int h) {
+  char buf[MAX_TEXT + 1];
+  strncpy(buf, text, MAX_TEXT);
+  buf[MAX_TEXT] = '\0';
+  char* f[4] = { (char*)"--", (char*)"--", (char*)"--", (char*)"--" };
+  char* p = buf;
+  for (int i = 0; i < 4 && p; i++) {
+    f[i] = p;
+    char* c = strchr(p, ',');
+    if (c) { *c = '\0'; p = c + 1; } else p = nullptr;
+  }
+  const bool wide = w >= 200;
+  const int half = w / 2;
+  const int th = 7;
+  int R = (h < 60 ? h : 60) / 2 - 4 - th / 2;
+  if (!wide && R > half / 2 - 6 - th / 2) R = half / 2 - 6 - th / 2;
+  const char* names[2] = { "5 horas", "Semana" };
+  for (int i = 0; i < 2; i++) {
+    const int pct = (f[i][0] >= '0' && f[i][0] <= '9') ? atoi(f[i]) : -1;
+    const int cy = y + h / 2;
+    const int cx = wide ? x + i * half + 6 + R + th / 2 : x + i * half + half / 2;
+    const uint16_t col = pct >= 90 ? rgb(235, 80, 70) : (uiStyle == ST_TERMINAL || uiStyle == ST_COLOR ? C_ACCENT : C_TEXT);
+    drawRing(cx, cy, R, th, pct < 0 ? 0 : (pct > 100 ? 100 : pct), col);
+    char v[8];
+    if (pct < 0) snprintf(v, sizeof(v), "--"); else snprintf(v, sizeof(v), "%d%%", pct);
+    const uint8_t s = textW(v, 2) <= 2 * (R - th / 2) - 4 ? 2 : 1;
+    printCentered(v, cx - R, 2 * R, cy - 4 * s, s, C_TEXT);
+    if (!wide) continue;
+    const int tx = cx + R + th / 2 + 8;
+    printAt(names[i], tx, cy - 20, 1, C_DIM);
+    printAt(f[2 + i], tx, cy - 8, 2, C_TEXT);
+    printAt("reinicia", tx, cy + 12, 1, C_DIM);
   }
 }
 

@@ -58,8 +58,9 @@
     { id: 'weather', label: 'Clima' },
     { id: 'disk',    label: 'Disco' },
     { id: 'net',     label: 'Red' },
+    { id: 'claude',  label: 'Claude' },
   ];
-  const INFO_TYPES = ['weather', 'disk', 'net'];
+  const INFO_TYPES = ['weather', 'disk', 'net', 'claude'];
   const MAX_CITY = 30;
 
   const VIDEO_W = W / 2, VIDEO_H = H / 2;   // el video viaja a media resolución y el ESP32 lo duplica

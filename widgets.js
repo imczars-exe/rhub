@@ -11,6 +11,9 @@
    la app y el firmware las dibujan como ↓ y ↑.
    ===================================================================== */
 
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const Display = require('./display');
 
 const T = {
@@ -42,18 +45,43 @@ function weatherKind(code) {
   return 'cloudy';
 }
 
+// Tiempo que falta para un reinicio: "2h10m", "4d3h", "35m". resetsAt acepta segundos, milisegundos o fecha ISO.
+function resetMs(v) {
+  if (v == null) return null;
+  const n = typeof v === 'number' ? v : Date.parse(v);
+  if (!Number.isFinite(n)) return null;
+  return n < 1e12 ? n * 1000 : n;
+}
+function formatReset(ms, now) {
+  if (ms == null) return '--';
+  const m = Math.max(0, Math.round((ms - now) / 60000));
+  if (m >= 1440) return `${Math.floor(m / 1440)}d${Math.floor((m % 1440) / 60)}h`;
+  if (m >= 60) return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}m`;
+  return `${m}m`;
+}
+// Una ventana del plan { used_percentage, resets_at } -> { pct, reset }. Si ya se reinició, vuelve a 0%.
+function claudeWindow(win, now) {
+  if (!win || typeof win.used_percentage !== 'number') return { pct: null, reset: '--' };
+  const at = resetMs(win.resets_at);
+  if (at != null && at <= now) return { pct: 0, reset: '--' };
+  return { pct: Math.max(0, Math.min(100, Math.round(win.used_percentage))), reset: formatReset(at, now) };
+}
+
 // Bytes por segundo -> megabits por segundo (Mbps) con un decimal ("0.0" si no hay tráfico).
 const formatMbps = (bytesPerSec) => ((Math.max(0, bytesPerSec || 0) * 8) / 1e6).toFixed(1);
 
 class InfoWidgets {
   // deps: { si (systeminformation), fetch, now }
-  constructor({ si, fetch: f, now = Date.now } = {}) {
+  constructor({ si, fetch: f, now = Date.now, claudeFile } = {}) {
     this.si = si; this.fetch = f || (typeof fetch === 'function' ? fetch : null); this.now = now;
     this.lang = 'es';
     this.weather = new Map();        // clave -> { at, data, busy, error }
     this.geo = new Map();            // ciudad -> { lat, lon, name }
     this.disk = { at: 0, busy: false, all: null };
     this.net = { at: 0, busy: false, rx: 0, tx: 0 };
+    // Uso del plan de Claude: lo deja la línea de estado de Claude Code (rhub-usage-statusline.js).
+    this.claudeFile = claudeFile || path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'rhub-usage.json');
+    this.claude = { at: 0, data: null };
   }
 
   setLang(l) { this.lang = l === 'en' ? 'en' : 'es'; }
@@ -108,6 +136,11 @@ class InfoWidgets {
     return all.find((x) => x.mount.toUpperCase() === sys) || all[0] || null;
   }
 
+  _readClaude() {
+    try { this.claude.data = JSON.parse(fs.readFileSync(this.claudeFile, 'utf8')); } catch (e) { this.claude.data = null; }
+    this.claude.at = this.now();
+  }
+
   async _loadNet() {
     try {
       const rows = await this.si.networkStats('*');
@@ -139,6 +172,12 @@ class InfoWidgets {
           const d = this._pickDrive(w.drive);
           out[key] = d ? { label: `${d.mount} ${d.freeGB}G ${this.t.free}`, value: `${d.use}%` }
             : { label: w.drive ? `${w.drive} --` : this.t.disk, value: '--' };
+        } else if (w.type === 'claude') {
+          if (now - this.claude.at > 5000) this._readClaude();
+          const d = this.claude.data || {};
+          const five = claudeWindow(d.five_hour, now), week = claudeWindow(d.seven_day, now);
+          const p = (x) => (x.pct == null ? '--' : String(x.pct));
+          out[key] = { label: 'Claude', value: `${p(five)}%`, raw: `${p(five)},${p(week)},${five.reset},${week.reset}`, claude: { five, week } };
         } else if (w.type === 'net') {
           if (now - this.net.at > 2000 && !this.net.busy) { this.net.busy = true; this._loadNet(); }
           out[key] = { label: this.t.net, value: `{ ${formatMbps(this.net.rx)}~} ${formatMbps(this.net.tx)}` };
@@ -152,8 +191,9 @@ class InfoWidgets {
 // Lo que viaja al ESP32 en una sola línea (máximo 40 caracteres: MAX_TEXT del firmware).
 // "~" (salto de línea del valor) es ASCII y pasa tal cual.
 const infoLine = (v) => {
+  if (v.raw) return v.raw;   // el widget Claude manda sus 4 datos tal cual: "37,12,2h10m,4d3h"
   const value = ascii(v.value);
   return `${ascii(v.label).slice(0, 39 - value.length)}|${value}`;
 };
 
-module.exports = { InfoWidgets, weatherKind, formatMbps, infoLine, ascii };
+module.exports = { InfoWidgets, weatherKind, formatMbps, formatReset, claudeWindow, infoLine, ascii };

@@ -48,6 +48,24 @@ test('Disco: elige la unidad pedida, la del sistema por defecto y avisa si no ex
   assert.deepStrictEqual(v['disk:z:'], { label: 'Z: --', value: '--' });
 });
 
+test('Claude: lee el uso del archivo y calcula lo que falta para reiniciar', () => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'rhub-')), 'rhub-usage.json');
+  const now = Date.UTC(2026, 10, 2, 12, 0, 0);
+  fs.writeFileSync(file, JSON.stringify({ at: now, five_hour: { used_percentage: 37.4, resets_at: (now + 130 * 60000) / 1000 }, seven_day: { used_percentage: 12, resets_at: (now + (4 * 24 + 3) * 3600000) / 1000 } }));
+  const iw = new W.InfoWidgets({ si: {}, now: () => now, claudeFile: file });
+  const display = D.normalize({ screens: [{ layout: 'full', slots: [{ type: 'claude' }] }] });
+  const v = iw.tick(display).claude;
+  assert.strictEqual(v.raw, '37,12,2h10m,4d3h');
+  assert.strictEqual(W.infoLine(v), '37,12,2h10m,4d3h');
+  assert.deepStrictEqual(v.claude.five, { pct: 37, reset: '2h10m' });
+  // ventana ya reiniciada -> 0%; sin archivo -> "--"
+  assert.deepStrictEqual(W.claudeWindow({ used_percentage: 90, resets_at: (now - 1000) / 1000 }, now), { pct: 0, reset: '--' });
+  const none = new W.InfoWidgets({ si: {}, now: () => now, claudeFile: file + '.no' });
+  assert.strictEqual(none.tick(display).claude.raw, '--,--,--,--');
+  assert.strictEqual(W.formatReset(now + 35 * 60000, now), '35m');
+});
+
 test('InfoWidgets: sin ciudad o sin internet no revienta', async () => {
   const iw = new W.InfoWidgets({ si: {}, fetch: async () => { throw new Error('offline'); } });
   const display = D.normalize({ screens: [{ layout: 'split', slots: [{ type: 'weather' }, { type: 'weather', city: 'X' }] }] });

@@ -1426,8 +1426,25 @@ let widgetValues = {};
 const INFO_SAMPLES = {
   weather: { label: 'Ciudad, Despejado', value: '28C' },
   disk: { label: 'C: 120G libres', value: '62%' }, net: { label: 'Red Mbps', value: '{ 9.6~} 2.4' },
+  claude: { label: 'Claude', value: '37%', claude: { five: { pct: 37, reset: '2h10m' }, week: { pct: 12, reset: '4d3h' } } },
 };
+// Widget Claude: dos ruedas, el uso de la ventana de 5 horas y el de la semana, con lo que falta para que se reinicien.
+function claudeInner(v) {
+  const c = (v && v.claude) || { five: { pct: null, reset: '--' }, week: { pct: null, reset: '--' } };
+  const item = (name, x) => {
+    const has = x.pct != null;
+    return `<div class="cl-item"><div class="cl-ring${has && x.pct >= 90 ? ' hot' : ''}" style="--p:${has ? x.pct : 0}"><b>${has ? x.pct + '%' : '--'}</b></div>
+      <div class="cl-txt"><span>${name}</span><em>${esc(x.reset)}</em><span>reinicia</span></div></div>`;
+  };
+  return item('5 horas', c.five) + item('Semana', c.week);
+}
+function claudeHTML(w, sample) {
+  const key = D.widgetKey(w);
+  const v = widgetValues[key] || (sample && INFO_SAMPLES.claude) || null;
+  return `<div class="w-claude" data-key="${esc(key)}">${claudeInner(v)}</div>`;
+}
 function infoHTML(w, sample) {
+  if (w.type === 'claude') return claudeHTML(w, sample);
   const key = D.widgetKey(w);
   const v = widgetValues[key] || (sample && INFO_SAMPLES[w.type]) || { label: '', value: '--' };
   return `<div class="w-info" data-key="${esc(key)}"><b class="w-info-val${v.value.includes('~') ? ' two' : ''}">${infoValueHTML(v.value)}</b><span class="w-info-label">${esc(v.label)}</span></div>`;
@@ -1436,6 +1453,7 @@ function infoHTML(w, sample) {
 const infoValueHTML = (value) => esc(value).replace(/~/g, '<br>').replace(/\{/g, '↓').replace(/\}/g, '↑');
 // Solo cambia los textos (no repinta el visor: así no reinicia videos ni animaciones).
 function updateInfoWidgets() {
+  document.querySelectorAll('.w-claude').forEach((el) => { const v = widgetValues[el.dataset.key]; if (v) el.innerHTML = claudeInner(v); });
   document.querySelectorAll('.w-info').forEach((el) => {
     const v = widgetValues[el.dataset.key];
     if (!v) return;
@@ -1461,7 +1479,7 @@ function widgetHTML(w, rect, style, sample) {
     }
     case 'cpu': case 'ram': case 'gpu': return `<div class="w-single">${statHTML(statInfo(w.type), style, rw, true)}</div>`;
     case 'spotify': return rw === D.W ? buildNowPlayingHTML() : spotifyCompactHTML();
-    case 'weather': case 'disk': case 'net': return infoHTML(w, sample);
+    case 'weather': case 'disk': case 'net': case 'claude': return infoHTML(w, sample);
     case 'text': return w.text ? `<div class="w-text">${style === 'terminal' ? '&gt; ' : ''}${esc(w.text)}</div>` : '';
     case 'image': return w.image ? `<img class="w-media" src="${w.image}" alt="">` : '<div class="w-empty">Imagen</div>';
     case 'video': return w.video ? `<video class="w-media" src="${fileUrl(w.video)}" autoplay muted loop playsinline></video>` : '<div class="w-empty">Video</div>';
